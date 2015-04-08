@@ -15,8 +15,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>javax</groupId>
-            <artifactId>javaee-web-api</artifactId>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.vaadin</groupId>
@@ -38,10 +38,6 @@
         <dependency>
             <groupId>com.vaadin.addon</groupId>
             <artifactId>vaadin-charts</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.vaadin</groupId>
-            <artifactId>vaadin-cdi</artifactId>
         </dependency>
         <dependency>
             <groupId>org.eclipse.paho</groupId>

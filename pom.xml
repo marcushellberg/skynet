@@ -17,18 +17,19 @@
     </modules>
 
     <properties>
-        <vaadin.version>7.4.3</vaadin.version>
-        <vaadin.plugin.version>${vaadin.version}</vaadin.plugin.version>
-        <vaadin.charts.version>2.0.0</vaadin.charts.version>
-        <vaadin-cdi.version>1.0.2</vaadin-cdi.version>
-
-        <jetty.plugin.version>9.2.3.v20140905</jetty.plugin.version>
-
         <project.source.version>1.8</project.source.version>
         <project.target.version>1.8</project.target.version>
         <project.encoding>UTF-8</project.encoding>
+
+        <vaadin.version>7.4.3</vaadin.version>
+        <vaadin.plugin.version>${vaadin.version}</vaadin.plugin.version>
+        <vaadin.charts.version>2.0.0</vaadin.charts.version>
+
+        <jetty.plugin.version>9.2.3.v20140905</jetty.plugin.version>
         <pi4j.version>1.1-SNAPSHOT</pi4j.version>
         <paho.version>1.0.2</paho.version>
+        <mockito.version>1.9.5</mockito.version>
+        <junit.version>4.11</junit.version>
     </properties>
 
 
@@ -86,21 +87,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.vaadin</groupId>
-                <artifactId>vaadin-cdi</artifactId>
-                <version>${vaadin-cdi.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.eclipse.paho</groupId>
                 <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
                 <version>${paho.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>javax</groupId>
-                <artifactId>javaee-web-api</artifactId>
-                <version>6.0</version>
+                <groupId>javax.servlet</groupId>
+                <artifactId>javax.servlet-api</artifactId>
+                <version>3.0.1</version>
                 <scope>provided</scope>
             </dependency>
 
@@ -113,6 +108,25 @@
                 <groupId>org.vaadin.marcus</groupId>
                 <artifactId>skynet-service</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>[16.0,)</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-all</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

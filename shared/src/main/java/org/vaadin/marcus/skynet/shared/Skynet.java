@@ -11,18 +11,5 @@ public class Skynet {
     public static final String HELLO = "hello?";
 
 
-    public enum Alert {
-        INFO("info"), WARNING("warning"), SEVERE("severe");
-
-        private String level;
-
-        Alert(String level) {
-            this.level = level;
-        }
-
-        public String getLevel() {
-            return level;
-        }
-    }
 }
 

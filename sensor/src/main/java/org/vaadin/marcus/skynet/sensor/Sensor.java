@@ -15,17 +15,21 @@ import java.util.List;
 
 public class Sensor {
 
-    private static String TOPIC = Skynet.TOPIC_SENSORS + "/temperature/indoor";
+    private static String TOPIC = Skynet.TOPIC_SENSORS + "/temperature/";
     public static final int MEASURE_INTERVAL = 1000;
 
     private Path sensorPath;
     private MqttClient client;
 
     public static void main(String[] args) throws Exception {
-        new Sensor().start();
+        if (args.length == 0) {
+            System.out.println("Please specify sensor name");
+        }
+        new Sensor(args[0]).start();
     }
 
-    public Sensor() throws Exception {
+    public Sensor(String name) throws Exception {
+        TOPIC += name;
         setupSensor();
         client = MQTTHelper.connect(TOPIC);
     }

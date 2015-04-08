@@ -10,6 +10,14 @@ public class Alarm {
         this.name = name;
     }
 
+    public String getType() {
+        return type;
+    }
+
+    public String getName() {
+        return name;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -27,5 +35,9 @@ public class Alarm {
         int result = type.hashCode();
         result = 31 * result + name.hashCode();
         return result;
+    }
+
+    public String getTopic() {
+        return "/" + type + "/" + name;
     }
 }

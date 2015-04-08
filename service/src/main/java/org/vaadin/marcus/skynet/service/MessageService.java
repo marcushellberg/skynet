@@ -1,54 +1,62 @@
 package org.vaadin.marcus.skynet.service;
 
+import com.google.common.eventbus.EventBus;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.vaadin.marcus.skynet.entities.Alarm;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.entities.Trigger;
+import org.vaadin.marcus.skynet.shared.Severity;
 import org.vaadin.marcus.skynet.shared.Skynet;
 
-import javax.enterprise.event.Event;
-import javax.inject.Inject;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class MessageService implements MqttCallback {
 
-    private ExecutorService executorService = Executors.newFixedThreadPool(10);
-    private Set<Alarm> alarms = new HashSet<>();
-    private Set<Sensor> sensors = new HashSet<>();
-    private Set<Trigger> triggers = new HashSet<>();
-    private MqttClient client;
+    protected Set<Alarm> alarms = new HashSet<>();
+    protected Set<Sensor> sensors = new HashSet<>();
+    protected Set<Trigger> triggers = new HashSet<>();
+    protected MqttClient client;
+    protected EventBus eventBus = new EventBus();
 
-    @Inject
-    private Event<SensorUpdatedEvent> sensorUpdatedEvent;
-    @Inject
-    private Event<SensorOfflineEvent> sensorOfflineEvent;
+    public void connect() {
+        try {
+            client = new MqttClient(Skynet.BROKER, MqttClient.generateClientId(), new MemoryPersistence());
+            MqttConnectOptions options = new MqttConnectOptions();
+            options.setCleanSession(true);
+            client.connect();
 
+            client.subscribe(Skynet.TOPIC_ALARMS + "/#");
+            client.subscribe(Skynet.TOPIC_SENSORS + "/#");
+            client.setCallback(this);
 
-    public void init() throws MqttException {
-        client = new MqttClient(Skynet.BROKER, MqttClient.generateClientId(), new MemoryPersistence());
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setCleanSession(true);
-        client.connect();
+            client.publish(Skynet.TOPIC_ALARMS, new MqttMessage(Skynet.HELLO.getBytes()));
 
-        client.subscribe(Skynet.TOPIC_ALARMS + "/#");
-        client.subscribe(Skynet.TOPIC_SENSORS + "/#");
-        client.setCallback(this);
+            Trigger trigger = new Trigger();
+            trigger.setTriggerAll(true);
+            trigger.setSensor(new Sensor("temperature", "Office"));
+            trigger.setCondition(Trigger.Condition.LARGER_THAN);
+            trigger.setTriggerValue(new Float(25.0));
+            trigger.setSeverity(Severity.SEVERE);
+            triggers.add(trigger);
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void handleSensorMessage(String topic, MqttMessage message) {
+    protected void handleSensorMessage(String topic, MqttMessage message) {
         String[] typeAndName = topic.replaceAll(Skynet.TOPIC_SENSORS, "").split("/");
-        Sensor sensor = new Sensor(typeAndName[0], typeAndName[1]);
+        Sensor sensor = new Sensor(typeAndName[1], typeAndName[2]);
 
         String content = new String(message.getPayload());
 
         if (content.contains(Skynet.OFFLINE)) {
             sensors.remove(sensor);
-            sensorOfflineEvent.fire(new SensorOfflineEvent(sensor));
+            eventBus.post(new SensorOfflineEvent(sensor));
+            System.out.println("Sensor " + sensor.getName() + " is OFFLINE");
         } else {
             String[] data = content.split(",");
             Date time = new Date(new Long(data[0].replaceAll("time=", "")));
@@ -57,24 +65,66 @@ public class MessageService implements MqttCallback {
             sensor.setTime(time);
             sensor.setValue(temp);
 
-            System.out.println(sensor.getName() + ": " + sensor.getValue());
             sensors.add(sensor);
-            sensorUpdatedEvent.fire(new SensorUpdatedEvent(sensor));
+            eventBus.post(new SensorUpdatedEvent(sensor));
+
+            getTriggers().forEach(trigger -> {
+                if (trigger.isTriggeredBy(sensor)) {
+                    triggerAlarm(sensor, trigger);
+                }
+            });
         }
 
     }
 
-    private void handleAlarmMessage(String topic, MqttMessage message) {
-        // We're only interested in discovering new alarms and clearing out disconnected ones
-        String[] typeAndName = topic.replaceAll(Skynet.TOPIC_ALARMS, "").split("/");
-        Alarm alarm = new Alarm(typeAndName[0], typeAndName[1]);
-
-        if (topic.contains(Skynet.ONLINE)) {
-            alarms.add(alarm);
-        } else if (topic.contains(Skynet.OFFLINE)) {
-            alarms.remove(alarm);
+    private void triggerAlarm(Sensor sensor, Trigger trigger) {
+        trigger.setTriggered(true);
+        eventBus.post(new SensorTriggeredEvent(sensor, trigger));
+        Set<Alarm> alarms = trigger.getAlarms();
+        if (trigger.isTriggerAll()) {
+            alarms = getAlarms();
         }
 
+        alarms.forEach(alarm -> {
+            try {
+                MqttMessage message = new MqttMessage(trigger.getSeverity().getLevel().getBytes());
+                message.setQos(0);
+                message.setRetained(false);
+                String topic = Skynet.TOPIC_ALARMS + alarm.getTopic();
+                client.publish(topic, message);
+                System.out.println("Triggered " + topic);
+            } catch (MqttException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    protected void handleAlarmMessage(String topic, MqttMessage message) {
+        // We're only interested in discovering new alarms and clearing out disconnected ones
+        if (topic.matches(Skynet.TOPIC_ALARMS + "/\\w+/\\w+")) {
+
+            String[] typeAndName = topic.replaceAll(Skynet.TOPIC_ALARMS, "").split("/");
+            Alarm alarm = new Alarm(typeAndName[1], typeAndName[2]);
+            String content = new String(message.getPayload());
+
+            if (content.contains(Skynet.ONLINE)) {
+                alarms.add(alarm);
+                System.out.println("Alarm " + alarm.getName() + " is ONLINE");
+            } else if (content.contains(Skynet.OFFLINE)) {
+                alarms.remove(alarm);
+
+                // Clean up any triggers that may have had this alarm attached
+                getTriggers().forEach(trigger -> {
+                    if (trigger.getAlarms().contains(alarm)) {
+                        trigger.getAlarms().remove(alarm);
+                        if (trigger.getAlarms().isEmpty()) {
+                            removeTrigger(trigger);
+                        }
+                    }
+                });
+                System.out.println("Alarm " + alarm.getName() + " is OFFLINE");
+            }
+        }
     }
 
     @Override
@@ -92,8 +142,35 @@ public class MessageService implements MqttCallback {
         }
     }
 
+
     @Override
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
 
+    }
+
+    public void addTrigger(Trigger trigger) {
+        triggers.add(trigger);
+    }
+
+    public void removeTrigger(Trigger trigger) {
+        triggers.remove(trigger);
+    }
+
+    public Set<Trigger> getTriggers() {
+        return Collections.unmodifiableSet(triggers);
+    }
+
+    public Set<Alarm> getAlarms() {
+        return Collections.unmodifiableSet(alarms);
+    }
+
+
+    public void registerListener(Object listener) {
+        // Delay connection until somebody is actually listening
+        if (client == null) {
+            connect();
+        }
+
+        eventBus.register(listener);
     }
 }

@@ -11,6 +11,9 @@ public class MQTTHelper {
         MqttClient client = new MqttClient(Skynet.BROKER, MqttClient.generateClientId(), new MemoryPersistence());
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
+        //Use shorter times for demo
+        options.setKeepAliveInterval(30);
+        options.setConnectionTimeout(2);
         options.setWill(topic, Skynet.OFFLINE.getBytes(), 1, true);
         client.connect();
         return client;

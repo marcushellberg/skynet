@@ -12,4 +12,20 @@ public class SensorUpdatedEvent {
     public Sensor getSensor() {
         return sensor;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SensorUpdatedEvent that = (SensorUpdatedEvent) o;
+
+        return !(sensor != null ? !sensor.equals(that.sensor) : that.sensor != null);
+
+    }
+
+    @Override
+    public int hashCode() {
+        return sensor != null ? sensor.hashCode() : 0;
+    }
 }
