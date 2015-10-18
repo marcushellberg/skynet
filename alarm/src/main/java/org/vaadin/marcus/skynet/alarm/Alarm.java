@@ -43,8 +43,7 @@ public class Alarm implements MqttCallback {
         System.out.println("Got message: " + topic + " - " + message);
         if (message.contains(Skynet.HELLO)) {
             announce();
-        }
-        if (message.contains(Skynet.OFFLINE) || message.contains(Skynet.ONLINE)) {
+        } else if (message.contains(Skynet.OFFLINE) || message.contains(Skynet.ONLINE)) {
             // This client does not currently care about other alarms
         } else if (topic.equals(TOPIC)) {
             alarmService.execute(new Alert(message));

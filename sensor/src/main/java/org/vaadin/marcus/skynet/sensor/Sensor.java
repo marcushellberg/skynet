@@ -25,7 +25,9 @@ public class Sensor {
         if (args.length == 0) {
             System.out.println("Please specify sensor name");
         }
-        new Sensor(args[0]).start();
+        Sensor sensor = new Sensor(args[0]);
+        Runtime.getRuntime().addShutdownHook(sensor.getShutdownHook());
+        sensor.start();
     }
 
     public Sensor(String name) throws Exception {
@@ -36,6 +38,19 @@ public class Sensor {
 
     private void start() throws Exception {
         reportSensorData();
+    }
+
+    private Thread getShutdownHook(){
+        return new Thread(){
+            @Override
+            public void run() {
+                try {
+                    publishMessage(Skynet.OFFLINE);
+                } catch (MqttException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
     }
 
     private void setupSensor() throws Exception {

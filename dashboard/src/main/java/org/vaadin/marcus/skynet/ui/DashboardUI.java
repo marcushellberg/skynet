@@ -27,7 +27,7 @@ import java.util.Map;
 @Push
 public class DashboardUI extends UI {
 
-    private Map<Sensor, SensorChart> sensorData = new HashMap<>();
+    private Map<Sensor, SensorDataBox> sensorData = new HashMap<>();
     private Configuration chartConfiguration;
     private Chart tempChart;
     private MessageService messageService = new MessageService();
@@ -40,6 +40,8 @@ public class DashboardUI extends UI {
         layout.setMargin(true);
         setContent(layout);
         messageService.registerListener(this);
+
+        addDetachListener(detach -> messageService.unregisterListener(this));
     }
 
     @Subscribe
@@ -47,17 +49,17 @@ public class DashboardUI extends UI {
         try {
             Sensor sensor = evt.getSensor();
             if (sensorData.containsKey(sensor)) {
-                access(() -> sensorData.get(sensor).addDataPoint(sensor.getValue()));
+                access(() -> sensorData.get(sensor).addDataPoint(sensor.getValue(), sensor.getTime()));
             } else {
-                SensorChart chart = new SensorChart(sensor.getName());
+                SensorDataBox chart = new SensorDataBox(sensor.getName());
                 access(() -> {
                     layout.addComponent(chart);
-                    chart.addDataPoint(sensor.getValue());
+                    chart.addDataPoint(sensor.getValue(), sensor.getTime());
                     sensorData.put(sensor, chart);
                 });
             }
         } catch (Exception ex) {
-            // Don't kill messaging service
+            // Don't kill the messenger
         }
     }
 
@@ -65,9 +67,13 @@ public class DashboardUI extends UI {
     public void sensorOfflineListener(SensorOfflineEvent evt) {
         try {
             Sensor sensor = evt.getSensor();
-            if (sensorData.containsKey(sensor)) {
-                layout.removeComponent(sensorData.get(sensor));
-            }
+            access(() -> {
+                Notification.show(evt.getSensor().getName() + " went offline.", Notification.Type.TRAY_NOTIFICATION);
+                if (sensorData.containsKey(sensor)) {
+                    layout.removeComponent(sensorData.get(sensor));
+                    sensorData.remove(sensor);
+                }
+            });
         } catch (Exception ex) {
             // Don't kill messaging service
         }
@@ -75,8 +81,7 @@ public class DashboardUI extends UI {
 
     @Subscribe
     public void sensorTriggeredListener(SensorTriggeredEvent evt) {
-        access(() -> Notification.show("Sensor alert triggered", Notification.Type.TRAY_NOTIFICATION));
-
+        access(() -> Notification.show("Sensor alert triggered", Notification.Type.WARNING_MESSAGE));
     }
 
     @WebServlet(value = "/*", asyncSupported = true)

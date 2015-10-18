@@ -2,7 +2,8 @@ package org.vaadin.marcus.skynet.service;
 
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.Before;
@@ -19,7 +20,9 @@ import java.util.Set;
 import static junit.framework.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class MessageServiceTest {
 
@@ -29,7 +32,7 @@ public class MessageServiceTest {
     @Mock
     EventBus eventBus;
     @Mock
-    MqttClient client;
+    MqttAsyncClient client;
 
     private MessageService messageService;
 
@@ -127,6 +130,8 @@ public class MessageServiceTest {
 
     @Test
     public void testThatTriggerSensAlarms() throws MqttException {
+        IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
+        when(client.publish(any(), any())).thenReturn(token);
         Trigger trigger = new Trigger();
         trigger.setCondition(Trigger.Condition.LARGER_THAN);
         trigger.setTriggerValue(new Float(10.0));

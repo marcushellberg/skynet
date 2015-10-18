@@ -13,24 +13,25 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class MessageService implements MqttCallback {
 
     protected Set<Alarm> alarms = new HashSet<>();
     protected Set<Sensor> sensors = new HashSet<>();
     protected Set<Trigger> triggers = new HashSet<>();
-    protected MqttClient client;
+    protected MqttAsyncClient client;
     protected EventBus eventBus = new EventBus();
 
     public void connect() {
         try {
-            client = new MqttClient(Skynet.BROKER, MqttClient.generateClientId(), new MemoryPersistence());
+            client = new MqttAsyncClient(Skynet.BROKER, MqttClient.generateClientId(), new MemoryPersistence());
             MqttConnectOptions options = new MqttConnectOptions();
             options.setCleanSession(true);
-            client.connect();
+            client.connect().waitForCompletion();
 
-            client.subscribe(Skynet.TOPIC_ALARMS + "/#");
-            client.subscribe(Skynet.TOPIC_SENSORS + "/#");
+            client.subscribe(Skynet.TOPIC_ALARMS + "/#", 0).waitForCompletion();
+            client.subscribe(Skynet.TOPIC_SENSORS + "/#", 0).waitForCompletion();
             client.setCallback(this);
 
             client.publish(Skynet.TOPIC_ALARMS, new MqttMessage(Skynet.HELLO.getBytes()));
@@ -58,6 +59,7 @@ public class MessageService implements MqttCallback {
             eventBus.post(new SensorOfflineEvent(sensor));
             System.out.println("Sensor " + sensor.getName() + " is OFFLINE");
         } else {
+
             String[] data = content.split(",");
             Date time = new Date(new Long(data[0].replaceAll("time=", "")));
             Float temp = new Float(data[1].replaceAll("temp=", ""));
@@ -91,7 +93,18 @@ public class MessageService implements MqttCallback {
                 message.setQos(0);
                 message.setRetained(false);
                 String topic = Skynet.TOPIC_ALARMS + alarm.getTopic();
-                client.publish(topic, message);
+                IMqttDeliveryToken token = client.publish(topic, message);
+                token.setActionCallback(new IMqttActionListener() {
+                    @Override
+                    public void onSuccess(IMqttToken asyncActionToken) {
+                        System.out.println("Send succeeded");
+                    }
+
+                    @Override
+                    public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                        exception.printStackTrace();
+                    }
+                });
                 System.out.println("Triggered " + topic);
             } catch (MqttException e) {
                 e.printStackTrace();
@@ -148,6 +161,10 @@ public class MessageService implements MqttCallback {
 
     }
 
+    public Set<Trigger> getTriggersForSensor(Sensor sensor) {
+        return getTriggers().stream().filter(trigger -> trigger.getSensor().equals(sensor)).collect(Collectors.toSet());
+    }
+
     public void addTrigger(Trigger trigger) {
         triggers.add(trigger);
     }
@@ -166,11 +183,15 @@ public class MessageService implements MqttCallback {
 
 
     public void registerListener(Object listener) {
-        // Delay connection until somebody is actually listening
+        // Delay MQTT connection until somebody is actually listening
         if (client == null) {
             connect();
         }
 
         eventBus.register(listener);
+    }
+
+    public void unregisterListener(Object listener) {
+        eventBus.unregister(listener);
     }
 }
