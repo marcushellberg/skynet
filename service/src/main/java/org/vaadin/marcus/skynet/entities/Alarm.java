@@ -37,6 +37,11 @@ public class Alarm {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return name + " (" + type + ")";
+    }
+
     public String getTopic() {
         return "/" + type + "/" + name;
     }

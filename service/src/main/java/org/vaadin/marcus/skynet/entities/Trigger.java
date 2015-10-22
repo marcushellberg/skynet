@@ -8,14 +8,14 @@ import java.util.UUID;
 
 public class Trigger {
 
-    public enum Condition {LARGER_THAN, LESS_THAN}
+    public enum Condition {GREATER_THAN, LESS_THAN}
 
     private final UUID id;
     private Sensor sensor;
     private Set<Alarm> alarms = new HashSet<>();
-    private boolean triggerAll = false;
-    private Condition condition;
-    private Float triggerValue;
+    private boolean triggerAll = true;
+    private Condition condition = Condition.GREATER_THAN;
+    private Double triggerValue;
     private boolean triggered = false;
     private Severity severity = Severity.INFO;
 
@@ -37,7 +37,6 @@ public class Trigger {
 
     public void setAlarms(Set<Alarm> alarms) {
         this.alarms = alarms;
-        this.triggerAll = false;
     }
 
     public boolean isTriggerAll() {
@@ -46,7 +45,6 @@ public class Trigger {
 
     public void setTriggerAll(boolean triggerAll) {
         this.triggerAll = triggerAll;
-        this.alarms = new HashSet<>();
     }
 
     public Condition getCondition() {
@@ -57,11 +55,11 @@ public class Trigger {
         this.condition = condition;
     }
 
-    public Number getTriggerValue() {
+    public Double getTriggerValue() {
         return triggerValue;
     }
 
-    public void setTriggerValue(Float triggerValue) {
+    public void setTriggerValue(Double triggerValue) {
         this.triggerValue = triggerValue;
     }
 
@@ -83,13 +81,18 @@ public class Trigger {
 
     public boolean isTriggeredBy(Sensor sensor) {
         if (!triggered && this.sensor.equals(sensor)) {
-            if (condition == Condition.LARGER_THAN) {
+            if (condition == Condition.GREATER_THAN) {
                 return sensor.getValue() > triggerValue;
             } else if (condition == Condition.LESS_THAN) {
                 return sensor.getValue() < triggerValue;
             }
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "Trigger: " + condition + " " + triggerValue;
     }
 
     @Override

@@ -13,6 +13,8 @@ import org.mockito.MockitoAnnotations;
 import org.vaadin.marcus.skynet.entities.Alarm;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.entities.Trigger;
+import org.vaadin.marcus.skynet.events.SensorTriggeredEvent;
+import org.vaadin.marcus.skynet.events.SensorUpdatedEvent;
 import org.vaadin.marcus.skynet.shared.Skynet;
 
 import java.util.Set;
@@ -39,7 +41,7 @@ public class MessageServiceTest {
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
-        messageService = new MessageService();
+        messageService = MessageService.getInstance();
         messageService.eventBus = eventBus;
         messageService.client = client;
     }
@@ -52,7 +54,7 @@ public class MessageServiceTest {
 
     @Test
     public void testSensorTempParsing() {
-        Float temp = receiveSensorMessage();
+        Double temp = receiveSensorMessage();
         assertEquals("Sensor value was incorrect", temp, getFirstSensor().getValue(), 0.0001);
     }
 
@@ -117,8 +119,8 @@ public class MessageServiceTest {
     @Test
     public void testTrigger() {
         Trigger trigger = new Trigger();
-        trigger.setCondition(Trigger.Condition.LARGER_THAN);
-        trigger.setTriggerValue(new Float(10.0));
+        trigger.setCondition(Trigger.Condition.GREATER_THAN);
+        trigger.setTriggerValue(new Double(10.0));
         Sensor sensor = new Sensor("temp", "test");
         trigger.setSensor(sensor);
         messageService.addTrigger(trigger);
@@ -133,8 +135,8 @@ public class MessageServiceTest {
         IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
         when(client.publish(any(), any())).thenReturn(token);
         Trigger trigger = new Trigger();
-        trigger.setCondition(Trigger.Condition.LARGER_THAN);
-        trigger.setTriggerValue(new Float(10.0));
+        trigger.setCondition(Trigger.Condition.GREATER_THAN);
+        trigger.setTriggerValue(new Double(10.0));
         Sensor sensor = new Sensor("temp", "test");
         trigger.setSensor(sensor);
         Set<Alarm> alarms = Sets.newHashSet();
@@ -147,8 +149,8 @@ public class MessageServiceTest {
         verify(client).publish(eq(ALARM_TOPIC), any(MqttMessage.class));
     }
 
-    private Float receiveSensorMessage() {
-        Float temp = new Float(20.51);
+    private Double receiveSensorMessage() {
+        Double temp = new Double(20.51);
         messageService.handleSensorMessage(SENSOR_TOPIC, new MqttMessage(("time=120391209310293,temp=" + temp).getBytes()));
         return temp;
     }

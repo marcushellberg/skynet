@@ -6,7 +6,7 @@ public class Sensor {
 
     private final String type;
     private final String name;
-    private Float value;
+    private Double value;
     private Date time;
 
     public Sensor(String type, String name) {
@@ -22,11 +22,11 @@ public class Sensor {
         return name;
     }
 
-    public Float getValue() {
+    public Double getValue() {
         return value;
     }
 
-    public void setValue(Float value) {
+    public void setValue(Double value) {
         this.value = value;
     }
 

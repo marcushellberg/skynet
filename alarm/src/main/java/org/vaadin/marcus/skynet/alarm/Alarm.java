@@ -15,12 +15,26 @@ import java.util.concurrent.Executors;
 public class Alarm implements MqttCallback {
 
     public static final String TOPIC = Skynet.TOPIC_ALARMS + "/visual/blinky";
-    ExecutorService alarmService = Executors.newFixedThreadPool(1);
+    private ExecutorService alarmService = Executors.newFixedThreadPool(1);
     private final GpioPinDigitalOutput pin;
     private MqttClient client;
 
     public static void main(String[] args) throws Exception {
-        new Alarm();
+        Alarm alarm = new Alarm();
+        Runtime.getRuntime().addShutdownHook(alarm.getShutdownHook());
+    }
+
+    private Thread getShutdownHook() {
+        return new Thread(){
+            @Override
+            public void run() {
+                try {
+                   publishMessage(Skynet.OFFLINE);
+                } catch (MqttException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
     }
 
 
@@ -51,20 +65,29 @@ public class Alarm implements MqttCallback {
     }
 
     private void announce() throws MqttException {
-        MqttMessage onlineResponse = new MqttMessage(Skynet.ONLINE.getBytes());
-        onlineResponse.setQos(1);
-        client.publish(TOPIC, onlineResponse);
+        publishMessage(Skynet.ONLINE);
     }
 
-    class Alert implements Runnable {
+
+    private void publishMessage(String payload) throws MqttException {
+        MqttMessage message = new MqttMessage(payload.getBytes());
+        message.setQos(0);
+        message.setRetained(false);
+        client.publish(TOPIC, message);
+        System.out.println("Posted message: " + TOPIC + " " +message);
+    }
+
+
+    public class Alert implements Runnable {
         private String severity;
 
-        Alert(String severity) {
+        public Alert(String severity) {
             this.severity = severity;
         }
 
         @Override
         public void run() {
+
             int sets, reps, speed;
 
             if (Severity.INFO.getLevel().equals(severity)) {

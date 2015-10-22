@@ -1,4 +1,4 @@
-package org.vaadin.marcus.skynet.service;
+package org.vaadin.marcus.skynet.events;
 
 import org.vaadin.marcus.skynet.entities.Sensor;
 

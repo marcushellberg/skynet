@@ -16,7 +16,7 @@ import java.util.List;
 public class Sensor {
 
     private static String TOPIC = Skynet.TOPIC_SENSORS + "/temperature/";
-    public static final int MEASURE_INTERVAL = 1000;
+    public static final int MEASURE_INTERVAL = 5000;
 
     private Path sensorPath;
     private MqttClient client;
@@ -80,7 +80,6 @@ public class Sensor {
         message.setQos(0);
         message.setRetained(false);
         client.publish(TOPIC, message);
-        System.out.println(TOPIC + " " +message);
     }
 
     private float readTemp() throws IOException, InterruptedException {

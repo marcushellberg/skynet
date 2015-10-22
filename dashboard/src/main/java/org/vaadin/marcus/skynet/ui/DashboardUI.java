@@ -1,46 +1,53 @@
 package org.vaadin.marcus.skynet.ui;
 
 import com.google.common.eventbus.Subscribe;
-import com.vaadin.addon.charts.Chart;
-import com.vaadin.addon.charts.model.Configuration;
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.Title;
 import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.server.VaadinServlet;
-import com.vaadin.ui.GridLayout;
-import com.vaadin.ui.Notification;
-import com.vaadin.ui.UI;
+import com.vaadin.ui.*;
+import com.vaadin.ui.themes.ValoTheme;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.service.MessageService;
-import org.vaadin.marcus.skynet.service.SensorOfflineEvent;
-import org.vaadin.marcus.skynet.service.SensorTriggeredEvent;
-import org.vaadin.marcus.skynet.service.SensorUpdatedEvent;
+import org.vaadin.marcus.skynet.events.SensorOfflineEvent;
+import org.vaadin.marcus.skynet.events.SensorTriggeredEvent;
+import org.vaadin.marcus.skynet.events.SensorUpdatedEvent;
 
 import javax.servlet.annotation.WebServlet;
 import java.util.HashMap;
 import java.util.Map;
 
-@Theme("valo")
-@Title("Skynet dashboard")
 @Push
+@Title("Skynet dashboard")
+@Theme("dashboard")
 public class DashboardUI extends UI {
 
-    private Map<Sensor, SensorDataBox> sensorData = new HashMap<>();
-    private Configuration chartConfiguration;
-    private Chart tempChart;
-    private MessageService messageService = new MessageService();
-    private GridLayout layout;
+    private Map<Sensor, SensorLayout> sensors = new HashMap<>();
+    private MessageService messageService = MessageService.getInstance();
+    private GridLayout sensorGrid;
 
     @Override
     protected void init(VaadinRequest vaadinRequest) {
-        layout = new GridLayout(2, 2);
-        layout.setSpacing(true);
-        layout.setMargin(true);
-        setContent(layout);
-        messageService.registerListener(this);
+        VerticalLayout rootLayout = new VerticalLayout();
+        rootLayout.setMargin(true);
+        rootLayout.setSpacing(true);
+        rootLayout.setSizeFull();
 
+        Label heading = new Label("Sensor Dashboard");
+        heading.addStyleName(ValoTheme.LABEL_H1);
+
+        sensorGrid = new GridLayout(2, 2);
+        sensorGrid.setSpacing(true);
+        sensorGrid.setMargin(true);
+        sensorGrid.setSizeFull();
+
+        rootLayout.addComponents(heading, sensorGrid);
+        rootLayout.setExpandRatio(sensorGrid, 1);
+        setContent(rootLayout);
+
+        messageService.registerListener(this);
         addDetachListener(detach -> messageService.unregisterListener(this));
     }
 
@@ -48,14 +55,14 @@ public class DashboardUI extends UI {
     public void sensorUpdateListener(SensorUpdatedEvent evt) {
         try {
             Sensor sensor = evt.getSensor();
-            if (sensorData.containsKey(sensor)) {
-                access(() -> sensorData.get(sensor).addDataPoint(sensor.getValue(), sensor.getTime()));
+            if (sensors.containsKey(sensor)) {
+                access(() -> sensors.get(sensor).addDataPoint(sensor.getValue(), sensor.getTime()));
             } else {
-                SensorDataBox chart = new SensorDataBox(sensor.getName());
+                SensorLayout chart = new SensorLayout(sensor);
                 access(() -> {
-                    layout.addComponent(chart);
+                    sensorGrid.addComponent(chart);
                     chart.addDataPoint(sensor.getValue(), sensor.getTime());
-                    sensorData.put(sensor, chart);
+                    sensors.put(sensor, chart);
                 });
             }
         } catch (Exception ex) {
@@ -69,9 +76,8 @@ public class DashboardUI extends UI {
             Sensor sensor = evt.getSensor();
             access(() -> {
                 Notification.show(evt.getSensor().getName() + " went offline.", Notification.Type.TRAY_NOTIFICATION);
-                if (sensorData.containsKey(sensor)) {
-                    layout.removeComponent(sensorData.get(sensor));
-                    sensorData.remove(sensor);
+                if (sensors.containsKey(sensor)) {
+                    sensors.get(sensor).setOffline();
                 }
             });
         } catch (Exception ex) {
@@ -81,7 +87,7 @@ public class DashboardUI extends UI {
 
     @Subscribe
     public void sensorTriggeredListener(SensorTriggeredEvent evt) {
-        access(() -> Notification.show("Sensor alert triggered", Notification.Type.WARNING_MESSAGE));
+        access(() -> sensors.get(evt.getSensor()).triggered());
     }
 
     @WebServlet(value = "/*", asyncSupported = true)

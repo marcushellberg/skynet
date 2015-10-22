@@ -1,0 +1,40 @@
+@import "../valo/valo.scss";
+
+
+@mixin dashboard {
+  @include valo;
+
+  .sensor-header-layout {
+    font-size: 32px;
+    margin-bottom: 12px;
+
+    .v-spacing {
+      width: 24px;
+    }
+
+    .status-indicator {
+      color: lightgreen;
+
+      &.offline {
+        color: lightcoral;
+      }
+    }
+
+    .alarm-button.triggered{
+      color: lightcoral;
+    }
+
+    .warning-icon {
+      color: orangered;
+    }
+
+    .v-button {
+      font-size: $v-font-size;
+    }
+  }
+
+  .warning {
+    color: orangered;
+  }
+
+}
