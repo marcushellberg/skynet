@@ -96,7 +96,8 @@ public class MessageService implements MqttCallback {
 
         if (content.contains(Skynet.OFFLINE)) {
             sensors.remove(sensor);
-            eventBus.post(new SensorOfflineEvent(sensor));
+            postEvent(new SensorOfflineEvent(sensor));
+
         } else {
             String[] data = content.split(",");
             Date time = new Date(new Long(data[0].replaceAll("time=", "")));
@@ -106,7 +107,7 @@ public class MessageService implements MqttCallback {
             sensor.setValue(temp);
 
             sensors.add(sensor);
-            eventBus.post(new SensorUpdatedEvent(sensor));
+            postEvent(new SensorUpdatedEvent(sensor));
 
             getTriggers().forEach(trigger -> {
                 if (trigger.isTriggeredBy(sensor)) {
@@ -119,7 +120,8 @@ public class MessageService implements MqttCallback {
 
     protected void triggerAlarm(Sensor sensor, Trigger trigger) {
         trigger.setTriggered(true);
-        eventBus.post(new SensorTriggeredEvent(sensor, trigger));
+
+        postEvent(new SensorTriggeredEvent(sensor, trigger));
 
         Set<Alarm> alarms = trigger.getAlarms();
         if (trigger.isTriggerAll()) {
@@ -177,6 +179,16 @@ public class MessageService implements MqttCallback {
                 });
                 System.out.println("Alarm " + alarm.getName() + " is OFFLINE");
             }
+        }
+    }
+
+    protected void postEvent(Object event) {
+        try {
+            eventBus.post(event);
+        } catch (Exception ex) {
+            // Make sure no UI exceptions bubble up into our service.
+            // The Guava event bus runs the posts synchronously and any unhandled exceptions can kill the client.
+            ex.printStackTrace();
         }
     }
 

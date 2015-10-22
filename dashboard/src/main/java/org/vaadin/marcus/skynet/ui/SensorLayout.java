@@ -25,7 +25,7 @@ public class SensorLayout extends VerticalLayout {
     private Sensor sensor;
     private Label warningIcon;
     private DataSeries chartData;
-    private Label statusIndicator;
+    private Label onlineIndicator;
     private IndexedContainer container;
 
 
@@ -33,8 +33,6 @@ public class SensorLayout extends VerticalLayout {
         this.sensor = sensor;
         setWidth("500px");
         setHeight("500px");
-
-        setupContainer();
 
         TabSheet tabs = new TabSheet();
 
@@ -47,7 +45,7 @@ public class SensorLayout extends VerticalLayout {
     }
 
     public void setOffline() {
-        statusIndicator.addStyleName("offline");
+        onlineIndicator.addStyleName("offline");
     }
 
     public void triggered() {
@@ -57,13 +55,7 @@ public class SensorLayout extends VerticalLayout {
 
     public void addDataPoint(Double dataPoint, Date time) {
         // Add to Grid
-        Object itemId = container.addItemAt(0);
-        container.getContainerProperty(itemId, VALUE_PROPERTY_ID).setValue(dataPoint);
-        container.getContainerProperty(itemId, TIME_PROPERTY_ID).setValue(time);
-        grid.setSortOrder(grid.getSortOrder());
-
-        // Round to nearest half degree for chart
-        dataPoint = 0.5 * Math.round(dataPoint / 0.5);
+        addToGrid(dataPoint, time);
 
         // Add to chart
         chartData.add(new DataSeriesItem(time, dataPoint));
@@ -72,11 +64,18 @@ public class SensorLayout extends VerticalLayout {
         updateStatusIcons();
     }
 
-
-    private void setupContainer() {
+    private void setupGridDataSource() {
         container = new IndexedContainer();
         container.addContainerProperty(TIME_PROPERTY_ID, Date.class, null);
         container.addContainerProperty(VALUE_PROPERTY_ID, Double.class, null);
+        grid.setContainerDataSource(container);
+    }
+
+    private void addToGrid(Double dataPoint, Date time) {
+        Object itemId = container.addItemAt(0);
+        container.getContainerProperty(itemId, VALUE_PROPERTY_ID).setValue(dataPoint);
+        container.getContainerProperty(itemId, TIME_PROPERTY_ID).setValue(time);
+        grid.setSortOrder(grid.getSortOrder());
     }
 
     private HorizontalLayout createHeader(String title) {
@@ -86,10 +85,12 @@ public class SensorLayout extends VerticalLayout {
         headerLayout.setDefaultComponentAlignment(Alignment.MIDDLE_CENTER);
         headerLayout.setSpacing(true);
 
-        statusIndicator = new Label(FontAwesome.CIRCLE.getHtml(), ContentMode.HTML);
-        statusIndicator.addStyleName("status-indicator");
-        statusIndicator.setWidth("20px");
+        // Online indicator
+        onlineIndicator = new Label(FontAwesome.CIRCLE.getHtml(), ContentMode.HTML);
+        onlineIndicator.addStyleName("status-indicator");
+        onlineIndicator.setWidth("20px");
 
+        // Caption
         Label caption = new Label(title);
         caption.setSizeUndefined();
         caption.addStyleName("sensor-name");
@@ -97,12 +98,13 @@ public class SensorLayout extends VerticalLayout {
         alarmsButton.setIcon(FontAwesome.BELL);
         alarmsButton.addClickListener(event -> getUI().addWindow(new AlarmsWindow(sensor)));
 
+        // Warning icon
         warningIcon = new Label(FontAwesome.WARNING.getHtml(), ContentMode.HTML);
         warningIcon.addStyleName("warning-icon");
         warningIcon.setWidth("20px");
         warningIcon.setVisible(false);
 
-        headerLayout.addComponents(statusIndicator, caption, warningIcon, alarmsButton);
+        headerLayout.addComponents(onlineIndicator, caption, warningIcon, alarmsButton);
         headerLayout.setExpandRatio(alarmsButton, 1);
         headerLayout.setComponentAlignment(alarmsButton, Alignment.MIDDLE_RIGHT);
 
@@ -112,29 +114,32 @@ public class SensorLayout extends VerticalLayout {
     private Chart createChart() {
         Chart chart = new Chart();
         chart.setCaption("Chart");
-
         chart.setSizeFull();
 
-        // Configure chart type and options
+        // Hide data point marker
+        PlotOptionsSpline plotOptions = new PlotOptionsSpline();
+        plotOptions.setMarker(new Marker(false));
+
+        // Empty data series for measurement data
+        chartData = new DataSeries();
+        chartData.setPlotOptions(plotOptions);
+
+        // Configure chart type and set titles
         Configuration configuration = chart.getConfiguration();
         configuration.setTitle("");
         configuration.getChart().setType(ChartType.SPLINE);
         configuration.getyAxis().setTitle("Temperature (°C)");
         configuration.getxAxis().setType(AxisType.DATETIME);
-        chartData = new DataSeries();
-        PlotOptionsSpline optionsSpline = new PlotOptionsSpline();
-        optionsSpline.setMarker(new Marker(false));
-        chartData.setPlotOptions(optionsSpline);
         configuration.addSeries(chartData);
-        chart.drawChart(configuration);
 
+        chart.drawChart(configuration);
         return chart;
     }
 
     private Grid createGrid() {
         grid = new Grid("Table");
         grid.setSizeFull();
-        grid.setContainerDataSource(container);
+        setupGridDataSource();
 
         // Style any values that are above/below threshold values  
         grid.setCellStyleGenerator(new WarningCellStyleGenerator());
@@ -153,7 +158,7 @@ public class SensorLayout extends VerticalLayout {
     }
 
     private void updateStatusIcons() {
-        statusIndicator.removeStyleName("offline");
+        onlineIndicator.removeStyleName("offline");
         warningIcon.setVisible(MessageService.getInstance().getTriggersForSensor(sensor).stream().anyMatch(Trigger::isTriggered));
     }
 
