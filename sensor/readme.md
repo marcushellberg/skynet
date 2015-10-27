@@ -1,0 +1,1 @@
+The sensor setup in this module is the same as here: https://learn.adafruit.com/adafruits-raspberry-pi-lesson-11-ds18b20-temperature-sensing/hardware

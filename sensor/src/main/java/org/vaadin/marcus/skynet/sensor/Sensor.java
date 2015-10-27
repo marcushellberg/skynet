@@ -16,7 +16,7 @@ import java.util.List;
 public class Sensor {
 
     private static String TOPIC = Skynet.TOPIC_SENSORS + "/temperature/";
-    public static final int MEASURE_INTERVAL = 5000;
+    public static final int MEASURE_INTERVAL = 1000;
 
     private Path sensorPath;
     private MqttClient client;
@@ -25,32 +25,16 @@ public class Sensor {
         if (args.length == 0) {
             System.out.println("Please specify sensor name");
         }
+
         Sensor sensor = new Sensor(args[0]);
         Runtime.getRuntime().addShutdownHook(sensor.getShutdownHook());
-        sensor.start();
+        sensor.measure();
     }
 
     public Sensor(String name) throws Exception {
         TOPIC += name;
         setupSensor();
         client = MQTTHelper.connect(TOPIC);
-    }
-
-    private void start() throws Exception {
-        reportSensorData();
-    }
-
-    private Thread getShutdownHook(){
-        return new Thread(){
-            @Override
-            public void run() {
-                try {
-                    publishMessage(Skynet.OFFLINE);
-                } catch (MqttException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
     }
 
     private void setupSensor() throws Exception {
@@ -67,12 +51,26 @@ public class Sensor {
         throw new Exception("No temp sensors found!");
     }
 
-
-    private void reportSensorData() throws MqttException, InterruptedException, IOException {
+    private void measure() throws MqttException, InterruptedException, IOException {
         while (true) {
-            publishMessage("time=" + System.currentTimeMillis() + ",temp=" + readTemp());
+            publishMessage("time=" + System.currentTimeMillis()
+                    + ",temp=" + readTemp());
             Thread.sleep(MEASURE_INTERVAL);
         }
+    }
+
+
+    private float readTemp() throws IOException, InterruptedException {
+        List<String> sensorInput = Files.readAllLines(sensorPath);
+
+        while (!sensorInput.get(0).contains("YES")) {
+            Thread.sleep(200);
+            sensorInput = Files.readAllLines(sensorPath);
+        }
+        float temp = new Float(sensorInput.get(1).split("t=")[1]) / 1000;
+        System.out.println(temp+" C");
+        return temp;
+
     }
 
     private void publishMessage(String payload) throws MqttException {
@@ -82,14 +80,16 @@ public class Sensor {
         client.publish(TOPIC, message);
     }
 
-    private float readTemp() throws IOException, InterruptedException {
-        List<String> sensorInput = Files.readAllLines(sensorPath);
-        while (!sensorInput.get(0).contains("YES")) {
-            Thread.sleep(200);
-            sensorInput = Files.readAllLines(sensorPath);
-        }
-        float temp = new Float(sensorInput.get(1).split("t=")[1]) / 1000;
-        return temp;
-
+    private Thread getShutdownHook(){
+        return new Thread(){
+            @Override
+            public void run() {
+                try {
+                    publishMessage(Skynet.OFFLINE);
+                } catch (MqttException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
     }
 }

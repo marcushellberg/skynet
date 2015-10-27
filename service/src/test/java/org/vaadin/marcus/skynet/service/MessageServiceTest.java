@@ -8,11 +8,13 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.vaadin.marcus.skynet.entities.Alarm;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.entities.Trigger;
+import org.vaadin.marcus.skynet.events.SensorOfflineEvent;
 import org.vaadin.marcus.skynet.events.SensorTriggeredEvent;
 import org.vaadin.marcus.skynet.events.SensorUpdatedEvent;
 import org.vaadin.marcus.skynet.shared.Skynet;
@@ -49,25 +51,7 @@ public class MessageServiceTest {
     @Test
     public void testSensorDetection() {
         receiveSensorMessage();
-        assertEquals("Sensor did not get saved", 1, messageService.sensors.size());
-    }
-
-    @Test
-    public void testSensorTempParsing() {
-        Double temp = receiveSensorMessage();
-        assertEquals("Sensor value was incorrect", temp, getFirstSensor().getValue(), 0.0001);
-    }
-
-    @Test
-    public void testSensorNameDetection() {
-        receiveSensorMessage();
-        assertEquals("Sensor name was incorrect", "test", getFirstSensor().getName());
-    }
-
-    @Test
-    public void testSensorTypeDetection() {
-        receiveSensorMessage();
-        assertEquals("Sensor type was incorrect", "temp", getFirstSensor().getType());
+        verify(eventBus).post(any(SensorUpdatedEvent.class));
     }
 
 
@@ -80,11 +64,36 @@ public class MessageServiceTest {
 
 
     @Test
-    public void testSensorOfflineEvent() {
-        receiveSensorMessage();
-        messageService.handleSensorMessage(SENSOR_TOPIC, new MqttMessage(Skynet.OFFLINE.getBytes()));
+    public void testSensorTempParsing() {
+        Double temp = receiveSensorMessage();
+        ArgumentCaptor<SensorUpdatedEvent> event = ArgumentCaptor.forClass(SensorUpdatedEvent.class);
+        verify(eventBus).post(event.capture());
 
-        assertEquals("Offline sensor was not removed from memory", 0, messageService.sensors.size());
+        assertEquals("Sensor value was incorrect", temp, event.getValue().getSensor().getValue(), 0.0001);
+    }
+
+    @Test
+    public void testSensorNameDetection() {
+        receiveSensorMessage();
+        ArgumentCaptor<SensorUpdatedEvent> event = ArgumentCaptor.forClass(SensorUpdatedEvent.class);
+        verify(eventBus).post(event.capture());
+        assertEquals("Sensor name was incorrect", "test", event.getValue().getSensor().getName());
+    }
+
+    @Test
+    public void testSensorTypeDetection() {
+        receiveSensorMessage();
+        ArgumentCaptor<SensorUpdatedEvent> event = ArgumentCaptor.forClass(SensorUpdatedEvent.class);
+        verify(eventBus).post(event.capture());
+
+        assertEquals("Sensor type was incorrect", "temp", event.getValue().getSensor().getType());
+    }
+
+
+    @Test
+    public void testSensorOfflineEvent() {
+        messageService.handleSensorMessage(SENSOR_TOPIC, new MqttMessage(Skynet.OFFLINE.getBytes()));
+        verify(eventBus).post(any(SensorOfflineEvent.class));
     }
 
     @Test
@@ -155,9 +164,6 @@ public class MessageServiceTest {
         return temp;
     }
 
-    private Sensor getFirstSensor() {
-        return messageService.sensors.iterator().next();
-    }
 
     private void receiveAlarmMessage() {
         messageService.handleAlarmMessage(ALARM_TOPIC, new MqttMessage(Skynet.ONLINE.getBytes()));

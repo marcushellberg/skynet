@@ -2,11 +2,10 @@ package org.vaadin.marcus.skynet.ui;
 
 import com.vaadin.addon.charts.Chart;
 import com.vaadin.addon.charts.model.*;
-import com.vaadin.data.util.IndexedContainer;
+import com.vaadin.data.util.BeanItemContainer;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.shared.ui.label.ContentMode;
 import com.vaadin.ui.*;
-import com.vaadin.ui.themes.ValoTheme;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.entities.Trigger;
 import org.vaadin.marcus.skynet.service.MessageService;
@@ -17,8 +16,6 @@ import java.util.Set;
 
 public class SensorLayout extends VerticalLayout {
 
-    public static final String VALUE_PROPERTY_ID = "Value";
-    public static final String TIME_PROPERTY_ID = "Time";
     public static final int MAX_MEASUREMENTS = 1000;
 
     private Grid grid;
@@ -26,56 +23,20 @@ public class SensorLayout extends VerticalLayout {
     private Label warningIcon;
     private DataSeries chartData;
     private Label onlineIndicator;
-    private IndexedContainer container;
+    private BeanItemContainer<Measurement> gridDataSource;
 
 
     public SensorLayout(Sensor sensor) {
         this.sensor = sensor;
-        setWidth("500px");
-        setHeight("500px");
+        setSizeFull();
 
         TabSheet tabs = new TabSheet();
 
         tabs.setSizeFull();
-        tabs.addStyleName(ValoTheme.TABSHEET_FRAMED);
         tabs.addComponents(createChart(), createGrid());
 
         addComponents(createHeader(sensor.getName()), tabs);
         setExpandRatio(tabs, 1);
-    }
-
-    public void setOffline() {
-        onlineIndicator.addStyleName("offline");
-    }
-
-    public void triggered() {
-        warningIcon.setVisible(true);
-        Notification.show("Sensor '" + sensor.getName() + "' value crossed threshold.", Notification.Type.WARNING_MESSAGE);
-    }
-
-    public void addDataPoint(Double dataPoint, Date time) {
-        // Add to Grid
-        addToGrid(dataPoint, time);
-
-        // Add to chart
-        chartData.add(new DataSeriesItem(time, dataPoint));
-
-        pruneMeasurements();
-        updateStatusIcons();
-    }
-
-    private void setupGridDataSource() {
-        container = new IndexedContainer();
-        container.addContainerProperty(TIME_PROPERTY_ID, Date.class, null);
-        container.addContainerProperty(VALUE_PROPERTY_ID, Double.class, null);
-        grid.setContainerDataSource(container);
-    }
-
-    private void addToGrid(Double dataPoint, Date time) {
-        Object itemId = container.addItemAt(0);
-        container.getContainerProperty(itemId, VALUE_PROPERTY_ID).setValue(dataPoint);
-        container.getContainerProperty(itemId, TIME_PROPERTY_ID).setValue(time);
-        grid.setSortOrder(grid.getSortOrder());
     }
 
     private HorizontalLayout createHeader(String title) {
@@ -139,17 +100,37 @@ public class SensorLayout extends VerticalLayout {
     private Grid createGrid() {
         grid = new Grid("Table");
         grid.setSizeFull();
-        setupGridDataSource();
+        gridDataSource = new BeanItemContainer<>(Measurement.class);
+        grid.setContainerDataSource(gridDataSource);
 
-        // Style any values that are above/below threshold values  
+        // Style any values that are above/below threshold values
         grid.setCellStyleGenerator(new WarningCellStyleGenerator());
 
         return grid;
     }
 
+    public void addDataPoint(Double dataPoint, Date time) {
+        gridDataSource.addItemAt(0, new Measurement(time, dataPoint));
+        grid.setSortOrder(grid.getSortOrder());
+
+        chartData.add(new DataSeriesItem(time, dataPoint));
+
+        pruneMeasurements();
+        updateStatusIcons();
+    }
+
+    public void setOffline() {
+        onlineIndicator.addStyleName("offline");
+    }
+
+    public void triggered() {
+        warningIcon.setVisible(true);
+        Notification.show("Sensor '" + sensor.getName() + "' value crossed threshold.", Notification.Type.WARNING_MESSAGE);
+    }
+
     private void pruneMeasurements() {
-        if (container.size() > MAX_MEASUREMENTS) {
-            container.removeItem(container.getIdByIndex(MAX_MEASUREMENTS - 1));
+        if (gridDataSource.size() > MAX_MEASUREMENTS) {
+            gridDataSource.removeItem(gridDataSource.getIdByIndex(MAX_MEASUREMENTS - 1));
         }
 
         if (chartData.size() > MAX_MEASUREMENTS) {
@@ -165,7 +146,7 @@ public class SensorLayout extends VerticalLayout {
     private class WarningCellStyleGenerator implements Grid.CellStyleGenerator {
         @Override
         public String getStyle(Grid.CellReference cellReference) {
-            if (VALUE_PROPERTY_ID.equals(cellReference.getPropertyId())) {
+            if ("value".equals(cellReference.getPropertyId())) {
                 Double cellValue = (Double) cellReference.getValue();
 
                 Set<Trigger> triggers = MessageService.getInstance().getTriggersForSensor(sensor);
@@ -181,4 +162,24 @@ public class SensorLayout extends VerticalLayout {
             return null;
         }
     }
+
+    protected class Measurement {
+        private final Date timestamp;
+        private final Double value;
+
+        public Measurement(Date timestamp, Double value) {
+            this.timestamp = timestamp;
+            this.value = value;
+        }
+
+        public Date getTimestamp() {
+            return timestamp;
+        }
+
+        public Double getValue() {
+            return value;
+        }
+
+    }
+
 }

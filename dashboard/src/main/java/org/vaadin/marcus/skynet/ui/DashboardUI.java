@@ -14,6 +14,8 @@ import org.vaadin.marcus.skynet.events.SensorOfflineEvent;
 import org.vaadin.marcus.skynet.events.SensorTriggeredEvent;
 import org.vaadin.marcus.skynet.events.SensorUpdatedEvent;
 import org.vaadin.marcus.skynet.service.MessageService;
+import org.vaadin.viritin.layouts.MHorizontalLayout;
+import org.vaadin.viritin.layouts.MVerticalLayout;
 
 import javax.servlet.annotation.WebServlet;
 import java.util.HashMap;
@@ -24,27 +26,17 @@ import java.util.Map;
 @Title("Skynet dashboard")
 public class DashboardUI extends UI {
 
-    private Map<Sensor, SensorLayout> sensors = new HashMap<>();
     private MessageService messageService = MessageService.getInstance();
-    private GridLayout sensorGrid;
+    private Map<Sensor, SensorLayout> sensors = new HashMap<>();
+    private MHorizontalLayout sensorsLayout;
 
     @Override
     protected void init(VaadinRequest vaadinRequest) {
-        VerticalLayout rootLayout = new VerticalLayout();
-        rootLayout.setSpacing(true);
-        rootLayout.setMargin(true);
-        rootLayout.setSizeFull();
-
         Label heading = new Label("Sensor Dashboard");
         heading.addStyleName(ValoTheme.LABEL_H1);
 
-        sensorGrid = new GridLayout(2, 2);
-        sensorGrid.setSpacing(true);
-        sensorGrid.setSizeFull();
-
-        rootLayout.addComponents(heading, sensorGrid);
-        rootLayout.setExpandRatio(sensorGrid, 1);
-        setContent(rootLayout);
+        sensorsLayout = new MHorizontalLayout().withFullWidth();
+        setContent(new MVerticalLayout(heading).expand(sensorsLayout));
 
         messageService.registerListener(this);
         addDetachListener(detach -> messageService.unregisterListener(this));
@@ -57,12 +49,12 @@ public class DashboardUI extends UI {
         if (sensors.containsKey(sensor)) {
             access(() -> sensors.get(sensor).addDataPoint(sensor.getValue(), sensor.getTime()));
         } else {
-            SensorLayout chart = new SensorLayout(sensor);
-            chart.addDataPoint(sensor.getValue(), sensor.getTime());
+            SensorLayout sensorLayout = new SensorLayout(sensor);
+            sensorLayout.addDataPoint(sensor.getValue(), sensor.getTime());
 
             access(() -> {
-                sensorGrid.addComponent(chart);
-                sensors.put(sensor, chart);
+                this.sensorsLayout.addComponent(sensorLayout);
+                sensors.put(sensor, sensorLayout);
             });
         }
     }

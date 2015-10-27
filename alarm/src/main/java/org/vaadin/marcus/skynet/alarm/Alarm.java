@@ -14,69 +14,41 @@ import java.util.concurrent.Executors;
 
 public class Alarm implements MqttCallback {
 
-    public static final String TOPIC = Skynet.TOPIC_ALARMS + "/visual/blinky";
-    private ExecutorService alarmService = Executors.newFixedThreadPool(1);
+    public static final String TOPIC = Skynet.TOPIC_ALARMS + "/visual/led";
+
+    private ExecutorService alarmService = Executors.newSingleThreadExecutor();
     private final GpioPinDigitalOutput pin;
     private MqttClient client;
 
     public static void main(String[] args) throws Exception {
         Alarm alarm = new Alarm();
         Runtime.getRuntime().addShutdownHook(alarm.getShutdownHook());
+        System.out.println(TOPIC + " is active.");
     }
-
-    private Thread getShutdownHook() {
-        return new Thread(){
-            @Override
-            public void run() {
-                try {
-                   publishMessage(Skynet.OFFLINE);
-                } catch (MqttException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-    }
-
 
     public Alarm() throws Exception {
         client = MQTTHelper.connect(TOPIC);
         client.setCallback(this);
         client.subscribe(Skynet.TOPIC_ALARMS + "/#", 0);
-        pin = GpioFactory.getInstance().provisionDigitalOutputPin(RaspiPin.GPIO_00, PinState.LOW);
-        alarmService.execute(new Alert(Severity.WARNING.getLevel()));
-        announce();
-    }
 
-    public void connectionLost(Throwable throwable) {
-        throwable.printStackTrace(System.out);
-        System.out.println("Connection was lost :(");
+        pin = GpioFactory.getInstance()
+                .provisionDigitalOutputPin(RaspiPin.GPIO_00, PinState.LOW);
+
+        publishMessage(Skynet.ONLINE);
     }
 
     public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
         String message = new String(mqttMessage.getPayload());
-        System.out.println("Got message: " + topic + " - " + message);
+
+        // Received discover message
         if (message.contains(Skynet.HELLO)) {
-            announce();
+            publishMessage(Skynet.ONLINE);
         } else if (message.contains(Skynet.OFFLINE) || message.contains(Skynet.ONLINE)) {
-            // This client does not currently care about other alarms
+            // This client does not currently care about other alarms, but it could...
         } else if (topic.equals(TOPIC)) {
             alarmService.execute(new Alert(message));
         }
     }
-
-    private void announce() throws MqttException {
-        publishMessage(Skynet.ONLINE);
-    }
-
-
-    private void publishMessage(String payload) throws MqttException {
-        MqttMessage message = new MqttMessage(payload.getBytes());
-        message.setQos(0);
-        message.setRetained(false);
-        client.publish(TOPIC, message);
-        System.out.println("Posted message: " + TOPIC + " " +message);
-    }
-
 
     public class Alert implements Runnable {
         private String severity;
@@ -106,7 +78,7 @@ public class Alarm implements MqttCallback {
                 System.out.println("Tried to trigger alarm with unknown level '" + severity + "'");
                 return;
             }
-            System.out.println("Alarm: " + severity);
+
             try {
                 for (int i = 0; i < sets; i++) {
                     for (int j = 0; j < reps; j++) {
@@ -124,7 +96,32 @@ public class Alarm implements MqttCallback {
         }
     }
 
+    public void connectionLost(Throwable throwable) {
+        throwable.printStackTrace(System.out);
+        System.out.println("Connection was lost :(");
+    }
+
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
 
+    }
+
+    private void publishMessage(String payload) throws MqttException {
+        MqttMessage message = new MqttMessage(payload.getBytes());
+        message.setQos(0);
+        message.setRetained(false);
+        client.publish(TOPIC, message);
+    }
+
+    private Thread getShutdownHook() {
+        return new Thread(){
+            @Override
+            public void run() {
+                try {
+                    publishMessage(Skynet.OFFLINE);
+                } catch (MqttException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
     }
 }
