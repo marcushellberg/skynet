@@ -9,12 +9,14 @@ import com.vaadin.ui.*;
 import org.vaadin.marcus.skynet.entities.Sensor;
 import org.vaadin.marcus.skynet.entities.Trigger;
 import org.vaadin.marcus.skynet.service.MessageService;
+import org.vaadin.viritin.layouts.MHorizontalLayout;
+import org.vaadin.viritin.layouts.MVerticalLayout;
 
 import java.util.Date;
 import java.util.Set;
 
 
-public class SensorLayout extends VerticalLayout {
+public class SensorLayout extends MVerticalLayout {
 
     public static final int MAX_MEASUREMENTS = 1000;
 
@@ -28,24 +30,17 @@ public class SensorLayout extends VerticalLayout {
 
     public SensorLayout(Sensor sensor) {
         this.sensor = sensor;
-        setSizeFull();
+        setMargin(false);
 
         TabSheet tabs = new TabSheet();
-
         tabs.setSizeFull();
         tabs.addComponents(createChart(), createGrid());
 
         addComponents(createHeader(sensor.getName()), tabs);
-        setExpandRatio(tabs, 1);
+        expand(tabs);
     }
 
     private HorizontalLayout createHeader(String title) {
-        HorizontalLayout headerLayout = new HorizontalLayout();
-        headerLayout.setWidth("100%");
-        headerLayout.addStyleName("sensor-header-layout");
-        headerLayout.setDefaultComponentAlignment(Alignment.MIDDLE_CENTER);
-        headerLayout.setSpacing(true);
-
         // Online indicator
         onlineIndicator = new Label(FontAwesome.CIRCLE.getHtml(), ContentMode.HTML);
         onlineIndicator.addStyleName("status-indicator");
@@ -53,11 +48,7 @@ public class SensorLayout extends VerticalLayout {
 
         // Caption
         Label caption = new Label(title);
-        caption.setSizeUndefined();
         caption.addStyleName("sensor-name");
-        Button alarmsButton = new Button();
-        alarmsButton.setIcon(FontAwesome.BELL);
-        alarmsButton.addClickListener(event -> getUI().addWindow(new AlarmsWindow(sensor)));
 
         // Warning icon
         warningIcon = new Label(FontAwesome.WARNING.getHtml(), ContentMode.HTML);
@@ -65,9 +56,16 @@ public class SensorLayout extends VerticalLayout {
         warningIcon.setWidth("20px");
         warningIcon.setVisible(false);
 
-        headerLayout.addComponents(onlineIndicator, caption, warningIcon, alarmsButton);
-        headerLayout.setExpandRatio(alarmsButton, 1);
-        headerLayout.setComponentAlignment(alarmsButton, Alignment.MIDDLE_RIGHT);
+        // Alarms button
+        Button alarmsButton = new Button();
+        alarmsButton.setIcon(FontAwesome.BELL);
+        alarmsButton.addClickListener(event ->
+                getUI().addWindow(new AlarmsWindow(sensor)));
+
+        MHorizontalLayout headerLayout =
+                new MHorizontalLayout(onlineIndicator, caption, warningIcon, alarmsButton)
+                .expand(caption).alignAll(Alignment.MIDDLE_LEFT);
+        headerLayout.addStyleName("sensor-header-layout");
 
         return headerLayout;
     }
