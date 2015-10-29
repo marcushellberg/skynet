@@ -32,7 +32,8 @@ public class TriggerForm extends FormLayout {
             foundAlarms.forEach(alarm -> this.alarms.addItem(alarm));
             alarms.setMultiSelect(true);
             alarms.setEnabled(false);
-            triggerAll.addValueChangeListener(event -> this.alarms.setEnabled(!triggerAll.getValue()));
+            triggerAll.addValueChangeListener(
+                    event -> this.alarms.setEnabled(!triggerAll.getValue()));
         }
 
         // Populate trigger conditions
