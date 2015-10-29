@@ -12,11 +12,12 @@ public class Trigger {
 
     private final UUID id;
     private Sensor sensor;
-    private Set<Alarm> alarms = new HashSet<>();
+    private boolean triggered = false;
+
     private boolean triggerAll = true;
+    private Set<Alarm> alarms = new HashSet<>();
     private Condition condition = Condition.GREATER_THAN;
     private Double triggerValue;
-    private boolean triggered = false;
     private Severity severity = Severity.INFO;
 
     public Trigger() {
